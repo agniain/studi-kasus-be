@@ -54,11 +54,11 @@ userSchema.path('email').validate(async function(value){
     }
 }, attr => `${attr.value} Email is registered.`);
 
-const HASH_ROUND = 10;
-userSchema.pre('save', function(next){
-    this.password = bcrypt.hashSync(this.password, HASH_ROUND);
-    next()
-});
+// const HASH_ROUND = 10;
+// userSchema.pre('save', function(next){
+//     this.password = bcrypt.hashSync(this.password, HASH_ROUND);
+//     next()
+// });
 
 userSchema.plugin(AutoIncrement, {inc_field: 'customer_id'});
 

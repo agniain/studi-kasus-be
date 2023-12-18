@@ -30,13 +30,13 @@ const localStrategy = async (email, password, done) => {
     try{
         let user =
             await User
-            .findOne({email})
+            .findOne({email, password}) // without bcrypt
             .select('-__v -createdAt -updatedAt -cart_items -token');
         if(!user) return done();
-        if(bcrypt.compareSync(password, user.password)){
-            ( {password, ...userWithoutPassword} = user.toJSON() );
-            return done(null, userWithoutPassword);
-        }
+        // if(bcrypt.compareSync(password, user.password)){
+        //     ( {password, ...userWithoutPassword} = user.toJSON() );
+        //     return done(null, userWithoutPassword);
+        // }
     }   catch(err) {
             done(err, null)
     }
