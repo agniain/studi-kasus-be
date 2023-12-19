@@ -8,40 +8,49 @@ const { getToken } = require('../../utils');
 const register = async(req, res, next) => {
     try{
         const payload = req.body;
+        console.log(payload);
 
         let user = new User(payload);
-
         await user.save();
-
-        return res.json(user);
+        console.log(user);
+        res.json(user);
+        
     }   catch(err) {
         if(err && err.name === 'ValidationError'){
-            return res.json({
-                error: 1,
-                message: err.message,
-                fields: err.errors
+            res.status(400).json({
+            error: 1,
+            message: err.message,
+            fields: err.errors    
             });
+        } else { 
+            throw err;
         }
-        next(err);
-    }
+    } 
 }
 
 const localStrategy = async (email, password, done) => {
     try{
         let user =
             await User
-            .findOne({email, password}) // without bcrypt
+            .findOne({ email }) 
             .select('-__v -createdAt -updatedAt -cart_items -token');
         if(!user) return done();
-        // if(bcrypt.compareSync(password, user.password)){
-        //     ( {password, ...userWithoutPassword} = user.toJSON() );
-        //     return done(null, userWithoutPassword);
-        // }
+        
+        // without bcrypt
+        if (user.password !== password) return done();
+        const { password: userPassword, ...userWithoutPassword } = user.toJSON();
+        return done(null, userWithoutPassword);
+        
     }   catch(err) {
             done(err, null)
     }
-    done();
 }
+
+// with bcrypt
+ // if(bcrypt.compareSync(password, user.password)){
+        //     ( {password, ...userWithoutPassword} = user.toJSON() );
+        //     return done(null, userWithoutPassword);
+        // }
 
 const login = async (req, res, next) => {
     passport.authenticate('local', async function(err, user) {
@@ -69,7 +78,7 @@ const logout = async (req, res, next) => {
     if(!token || !user) {
         res.json({
             error: 1,
-            message: 'User Not  Found!'
+            message: 'User Not Found!'
         });
     }
 
