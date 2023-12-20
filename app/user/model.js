@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const AutoIncrement = require('mongoose-sequence')(mongoose);
-const bcrypt = require('bcrypt');
+// const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
 
@@ -39,22 +39,20 @@ const userSchema = new mongoose.Schema({
 
 userSchema.plugin(AutoIncrement, {inc_field: 'customer_id'});
 
-// validasi email
-userSchema.path('email').validate(function(value){
-    const EMAIL_RE = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/;
-    console.log(value);
-    return EMAIL_RE.test(value);
-},  attr => `${attr.value} Email is not valid!`);
-
-// password
-const HASH_ROUND = 10;
-userSchema.pre('save', function(next){
-    this.password = bcrypt.hashSync(this.password, HASH_ROUND);
-    next()
-});
-
 const User = mongoose.model('User', userSchema);
 module.exports = User;
 
+// // validasi email
+// userSchema.path('email').validate(function(value){
+//     const EMAIL_RE = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/;
+//     console.log(value);
+//     return EMAIL_RE.test(value);
+// },  attr => `${attr.value} Email is not valid!`);
 
+// // password
+// const HASH_ROUND = 10;
+// userSchema.pre('save', function(next){
+//     this.password = bcrypt.hashSync(this.password, HASH_ROUND);
+//     next()
+// });
 

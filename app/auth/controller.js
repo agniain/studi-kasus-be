@@ -3,7 +3,7 @@ const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const { getToken } = require('../../utils');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 const register = async(req, res, next) => {
     try{
@@ -65,14 +65,12 @@ const localStrategy = async (email, password, done) => {
     }
 }
 
-
-
 const login = async (req, res, next) => {
     console.log('Entering login route');
     console.log('Email:', req.body.email, 'Password:', req.body.password );
     
         passport.authenticate('local', async function(err, user) {
-            console.log('Inside passport.authenticate');
+            console.log('Inside passport.authenticate', user);
 
             if(err) {
                 console.error('authentication error:', err);
@@ -100,6 +98,7 @@ const login = async (req, res, next) => {
             });
         })(req, res, next)
 };
+
 
 const logout = async (req, res, next) => {
     let token = getToken(req);
