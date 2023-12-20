@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const AutoIncrement = require('mongoose-sequence')(mongoose);
-// const bcrypt = require('bcrypt');
+const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
 
@@ -46,13 +46,15 @@ userSchema.path('email').validate(function(value){
     return EMAIL_RE.test(value);
 },  attr => `${attr.value} Email is not valid!`);
 
+// password
+const HASH_ROUND = 10;
+userSchema.pre('save', function(next){
+    this.password = bcrypt.hashSync(this.password, HASH_ROUND);
+    next()
+});
+
 const User = mongoose.model('User', userSchema);
 module.exports = User;
 
-// password
-// const HASH_ROUND = 10;
-// userSchema.pre('save', function(next){
-//     this.password = bcrypt.hashSync(this.password, HASH_ROUND);
-//     next()
-// });
+
 
