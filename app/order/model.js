@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const Invoice = require('../invoice/model');
-const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const orderSchema = new mongoose.Schema({
 
@@ -32,7 +31,8 @@ const orderSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-orderSchema.plugin(AutoIncrement, {inc_field: 'order_number'});
+
+
 orderSchema.virtual('items_count').get(function(){
     return this.order_items.reduce((total, item) => total + parseInt(item.qty ), 0);
 });

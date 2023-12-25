@@ -1,11 +1,25 @@
 const router = require('express').Router();
 const authController = require('./controller');
 const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
+var LocalStrategy = require('passport-local');
+const User = require('../user/model');
 
-passport.use(new LocalStrategy({usernamefield: 'email'}, authController.localStrategy))
+passport.use(authController.strategy);
+passport.use(new LocalStrategy(function verify(email, password, cb) {
+    User.findOne({ email: email}, function(err, user) {
+        if (err) { return cb(err); }
+        if (!user) { return cb(null, false); }
+        if (!user.verifyPassword(password)) { return cb(null, false); }
+        return cb(null, user);
+    })
+}));
+
 router.post('/register', authController.register);
-router.post('/login', authController.login);
+router.post('/login', authController.login, 
+    passport.authenticate('local'), function(req, res) {
+    res.redirect('/')
+    });
+
 router.post('/logout', authController.logout);
 router.get('/me', authController.me);
 router.get('/users', authController.index);

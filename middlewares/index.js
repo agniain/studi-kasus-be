@@ -1,43 +1,79 @@
-const { getToken, policyFor } = require("../utils")
+const { AbilityBuilder, createMongoAbility} = require("@casl/ability");
 const jwt = require('jsonwebtoken');
 const config = require('../app/config');
-const User = require("../app/user/model");
 
-function decodeToken() {
+function verifyAccessToken(token) {
     return async function(req, res, next) {
         try {
-            let token = getToken(req);
-
-            if(!token) return next();
-            
-            req.user = jwt.verify(token, config.secretkey);
-
-            let user = await User.findOne({token: {$in: [token]}});
-
-            if(!user) {
-                res.json({
-                    error: 1,
-                    message: 'Token Expired'
-                });
-            }
-        } catch (err) {
-            if(err & err.name === 'JsonWebTokenError') {
-                return res.json({
-                    error: 1,
-                    message: err.message
-                }); 
-            }
-
-           next(err); 
+            const secret = config.secretkey;
+            let payload = req.user
+            payload = jwt.verify(token, secret);
+        return { success: true, data: payload };
+        } catch (error) {
+        return { success: false, error: error.message };
         }
-    return next();
-    }
+  }
 }
 
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+  
+    if (!token) {
+      return res.sendStatus(401);
+    }
+  
+    const result = verifyAccessToken(token);
+  
+    if (!result.success) {
+      return res.status(403).json({ error: result.error });
+    }
+  
+    req.user = result.data;
+    next();
+}
+
+function defineAbilityFor(user) {
+    const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
+  
+    // permissions for all users
+    can('read', 'Product');
+  
+    if (user) {
+      // Guest permissions
+      if (user.role === 'user') {
+        can('read', 'Product');
+      }
+  
+      // User permissions
+      if (user.role === 'user') {
+        can('view', 'Order');
+        can('create', 'Order');
+        can('read', 'Order', { user_id: user._id });
+        can('update', 'User', { _id: user._id });
+        can('read', 'Cart', { user_id: user._id });
+        can('update', 'Cart', { user_id: user._id });
+        can('view', 'DeliveryAddress');
+        can('create', 'DeliveryAddress', { user_id: user._id });
+        can('update', 'DeliveryAddress', { user_id: user._id });
+        can('delete', 'DeliveryAddress', { user_id: user._id });
+        can('read', 'Invoice', { user_id: user._id });
+      }
+  
+      // Admin permissions
+      if (user.role === 'admin') {
+        can('manage', 'all');
+      }
+    }
+  
+    return build();
+    
+}
+  
 // middleware untuk cek hak akses
 function police_check(action, subject) {
     return function(req, res, next) {
-        let policy = policyFor(req.user);
+        let policy = defineAbilityFor(req.user);
         if(!policy.can(action, subject)) {
             return res.json({
                 error: 1,
@@ -47,8 +83,11 @@ function police_check(action, subject) {
         next();
     }
 }
+  
+
 
 module.exports = {
-    decodeToken,
-    police_check
+    authenticateToken,
+    defineAbilityFor,
+    police_check,
 }

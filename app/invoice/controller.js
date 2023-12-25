@@ -1,5 +1,5 @@
 const { subject } = require("@casl/ability");
-const { policyFor } = require("../../utils");
+const { defineAbilityFor } = require("../../middlewares");
 const Invoice = require("./model");
 
 const show = async(req, res, next) => {
@@ -11,7 +11,7 @@ const show = async(req, res, next) => {
         .populate('order')
         .populate('user');
 
-        let policy = policyFor(req.user);
+        let policy = defineAbilityFor(req.user);
         let subjectInvoice = subject('Invoice', {...invoice, user_id: invoice.user._id});
         if(!policy.can('read', subjectInvoice)){
             return res.json({

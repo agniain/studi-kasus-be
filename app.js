@@ -4,7 +4,6 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 const cors = require('cors');
-const {decodeToken} = require('./middlewares');
 const productRoute = require('./app/product/router');
 const categoryRoute = require('./app/category/router');
 const tagRoute = require('./app/tag/router');
@@ -14,6 +13,9 @@ const cartRoute = require('./app/cart/router');
 const orderRoute = require('./app/order/router');
 const invoiceRoute = require('./app/invoice/router');
 const passport = require('passport');
+const config = require('./app/config');
+const session = require('express-session');
+const { authenticateToken } = require('./middlewares');
 
 var app = express();
 
@@ -27,8 +29,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(session({
+  secret: config.secretkey,
+  resave: false,
+  saveUninitialized: false
+}));
 app.use(passport.initialize())
-app.use(decodeToken());
+app.use(passport.session());
+app.get('/protected', authenticateToken, (req, res) => {
+  res.json({ message: 'Welcome to the protected route!', user: req.user });
+});
+
 
 app.use('/auth', authRoute);
 app.use('/api', productRoute);

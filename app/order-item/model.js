@@ -5,7 +5,6 @@ const orderItemSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Product name is required.'],
-        minLength: [2, 'Product name must be at least 2 characters.'],
     },
 
     qty: {

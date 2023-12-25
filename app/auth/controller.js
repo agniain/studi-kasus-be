@@ -1,14 +1,16 @@
 const User = require('../user/model');
-const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const { getToken } = require('../../utils');
-const bcrypt = require('bcryptjs');
+const { getToken } = require('../../middlewares');
+const LocalStrategy = require('passport-local');
 
 const register = async(req, res, next) => {
     try{
-        const payload = req.body;
+        let payload = req.body;
         console.log(payload);
+
+        let counter = await User.countDocuments();
+        payload = {...payload, customer_id: counter + 1}
 
         let user = new User(payload);
         console.log('Created user object:', user);
@@ -42,81 +44,79 @@ const index = async (req, res, next) => {
     }
 };
 
-const localStrategy = async (email, password, done) => {
-    console.log('Email in localStrategy:', email);
-    console.log('Password in localStrategy:', password);
-    try{
-        let user =
-            await User
-            .findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } }) 
-            .select('-__v -createdAt -updatedAt -cart_items -token');
-        if(!user) return done();
-        
-        // with bcrypt
-        if(bcrypt.compareSync(password, user.password)){
-            ( {password, ...userWithoutPassword} = user.toJSON() );
-            return done(null, userWithoutPassword);
-        } else {
-            console.log('Password comparison failed');
-            return done();
+const strategy = new LocalStrategy(function verify(email, password, cb) {
+    db.get('SELECT * FROM users WHERE email = ?', [ email ], function(err, user) {
+      if (err) { return cb(err); }
+      if (!user) { return cb(null, false, { message: 'Incorrect email or password.' }); }
+  
+      crypto.pbkdf2(password, user.salt, 310000, 32, 'sha256', function(err, hashedPassword) {
+        if (err) { return cb(err); }
+        if (!crypto.timingSafeEqual(user.hashed_password, hashedPassword)) {
+          return cb(null, false, { message: 'Incorrect username or password.' });
         }
-    }   catch(err) {
-            done(err, null)
-    }
-}
+        return cb(null, user);
+      });
+    });
+  });
 
 const login = async (req, res, next) => {
-    console.log('Entering login route');
-    console.log('Email:', req.body.email, 'Password:', req.body.password );
-    
-        passport.authenticate('local', async function(err, user) {
-            console.log('Inside passport.authenticate', user);
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email, password });
 
-            if(err) {
-                console.error('authentication error:', err);
-                return next(err);
-            }
-    
-            if (!user) {
-                console.log('User not found');
-                return res.json({
-                    error: 1,
-                    message: 'Email or Password incorrect',
-                });
-            }
-            console.log('User authenticated successfully:', user);
-
-            let signed = jwt.sign(user, config.secretkey);
-    
-            await User.findByIdAndUpdate(user._id, {$push: {token: signed}});
-            console.log('Login successful. Sending response.');
-
-            res.json({
-                message: 'Login Successful',
-                user,
-                token: signed
+        if (!user) {
+            console.log('User not found');
+            return res.status(401).json({
+                error: 1,
+                message: 'Email or Password incorrect',
             });
-        })(req, res, next)
+        }
+        console.log('User authenticated successfully:', user);
+
+        const options = { expiresIn: '7d' };
+        let signed = jwt.sign({ userId: user._id, email: user.email }, config.secretkey, options);
+
+        // Users get the new token
+        await User.findByIdAndUpdate(user._id, { $push: { token: signed } });
+        console.log('Login successful. Sending response.');
+
+        res.json({
+            message: 'Login Successful',
+            user,
+            token: signed,
+        });
+    } catch (err) {
+        console.error('Login error:', err);
+        return next(err);
+    }
 };
 
-
 const logout = async (req, res, next) => {
-    let token = getToken(req);
+    try {
+        let token = getToken(req);
 
-    let user = await User.findOneAndUpdate({token: {$in: [token]}}, {$pull: {token: token}}, {useFindAndModify: false});
+        let user = await User.findOneAndUpdate(
+            { token: { $in: [token] } },
+            { $pull: { token: token } },
+            { useFindAndModify: false, new: true }
+        );
 
-    if(!token || !user) {
-        res.json({
-            error: 1,
-            message: 'User Not Found!'
+        if (!token || !user) {
+            return next({
+                error: 1,
+                message: 'User Not Found!'
+            });
+        }
+
+        return res.json({
+            error: 0,
+            message: 'Logout Successful'
         });
+    } catch (error) {
+        next(error);
     }
+};
 
-    return res.json({
-        error: 0,
-        message: 'Logout Successful'
-    });
-}
 
 const me = (req, res, next) => {
     if(!req.user) {
@@ -129,7 +129,7 @@ const me = (req, res, next) => {
 
 module.exports = {
     register,
-    localStrategy,
+    strategy,
     login,
     index,
     logout,
