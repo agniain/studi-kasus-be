@@ -1,8 +1,9 @@
 const User = require('../user/model');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const { getToken } = require('../../middlewares');
+const bcrypt = require('bcryptjs')
 const LocalStrategy = require('passport-local');
+const { verifyAccessToken } = require('../../middlewares');
 
 const register = async(req, res, next) => {
     try{
@@ -46,18 +47,31 @@ const index = async (req, res, next) => {
 
 const strategy = new LocalStrategy(function verify(email, password, cb) {
     db.get('SELECT * FROM users WHERE email = ?', [ email ], function(err, user) {
-      if (err) { return cb(err); }
-      if (!user) { return cb(null, false, { message: 'Incorrect email or password.' }); }
-  
-      crypto.pbkdf2(password, user.salt, 310000, 32, 'sha256', function(err, hashedPassword) {
-        if (err) { return cb(err); }
-        if (!crypto.timingSafeEqual(user.hashed_password, hashedPassword)) {
-          return cb(null, false, { message: 'Incorrect username or password.' });
+        if (err) { 
+            return cb(err); 
         }
-        return cb(null, user);
-      });
+        if (!user) { 
+            return cb(null, false, { message: 'Incorrect email or password.' }); 
+        }
+    
+        bcrypt.compare(password, user.password, function(err, password) {
+            if (err) { 
+                return cb(err); 
+            }
+            if (!password) { 
+                return cb(null, false, { message: 'Incorrect email or password.' }); 
+            }
+
+            return cb(null, user);
+        });
     });
-  });
+});
+
+      //   crypto.pbkdf2(password, user.salt, 310000, 32, 'sha256', function(err, hashedPassword) {
+    //     if (err) { return cb(err); }
+    //     if (!crypto.timingSafeEqual(user.hashed_password, hashedPassword)) {
+    //       return cb(null, false, { message: 'Incorrect username or password.' });
+    //     }
 
 const login = async (req, res, next) => {
     try {
@@ -78,7 +92,7 @@ const login = async (req, res, next) => {
 
         // Users get the new token
         await User.findByIdAndUpdate(user._id, { $push: { token: signed } });
-        console.log('Login successful. Sending response.');
+        console.log('Login successful');
 
         res.json({
             message: 'Login Successful',
@@ -93,14 +107,27 @@ const login = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
     try {
-        let token = getToken(req);
-
+        if (!req.user) {
+            console.log('req.user is undefined');
+            return next({
+                error: 1,
+                message: 'User Not Found'
+            });
+        }
+        if (!req.user.token) {
+            console.log('req.user.token is undefined');
+            return next({
+                error: 1,
+                message: 'Token Not Available'
+            });
+        }
+        let token = req.user.token;
+        console.log('Token:', token);
         let user = await User.findOneAndUpdate(
             { token: { $in: [token] } },
             { $pull: { token: token } },
             { useFindAndModify: false, new: true }
         );
-
         if (!token || !user) {
             return next({
                 error: 1,
@@ -111,12 +138,20 @@ const logout = async (req, res, next) => {
         return res.json({
             error: 0,
             message: 'Logout Successful'
-        });
+        });  
+            
     } catch (error) {
-        next(error);
+        throw error;
     }
 };
 
+
+ // const { token } = req.body;
+        // const userToken = await User.findOne({ token: { $in: [token] } });
+        // console.log('token:', token );
+        //     if (!userToken) {
+        //         return res.status(401).json({ error: 'not found!' });
+        //     }
 
 const me = (req, res, next) => {
     if(!req.user) {

@@ -18,9 +18,22 @@ router.post('/register', authController.register);
 router.post('/login', authController.login, 
     passport.authenticate('local'), function(req, res) {
     res.redirect('/')
-    });
+    }
+);
 
-router.post('/logout', authController.logout);
+router.post('/logout', function (req, res) {
+    req.logout(function(err) {
+        if (err) {
+            return res.status(500).json({
+                error: 1,
+                message: 'Logout failed'
+            });
+        }
+    });
+},
+    authController.logout
+);
+
 router.get('/me', authController.me);
 router.get('/users', authController.index);
 
