@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const config = require('../config');
 const bcrypt = require('bcryptjs')
 const LocalStrategy = require('passport-local');
-const { verifyAccessToken } = require('../../middlewares');
 
 const register = async(req, res, next) => {
     try{
@@ -67,12 +66,6 @@ const strategy = new LocalStrategy(function verify(email, password, cb) {
     });
 });
 
-      //   crypto.pbkdf2(password, user.salt, 310000, 32, 'sha256', function(err, hashedPassword) {
-    //     if (err) { return cb(err); }
-    //     if (!crypto.timingSafeEqual(user.hashed_password, hashedPassword)) {
-    //       return cb(null, false, { message: 'Incorrect username or password.' });
-    //     }
-
 const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -91,7 +84,7 @@ const login = async (req, res, next) => {
         let signed = jwt.sign({ userId: user._id, email: user.email }, config.secretkey, options);
 
         // Users get the new token
-        await User.findByIdAndUpdate(user._id, { $push: { token: signed } });
+        await User.findByIdAndUpdate(user._id, { token: signed });
         console.log('Login successful');
 
         res.json({
@@ -107,6 +100,7 @@ const login = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
     try {
+        console.log(req.user);
         if (!req.user) {
             console.log('req.user is undefined');
             return next({
@@ -121,13 +115,13 @@ const logout = async (req, res, next) => {
                 message: 'Token Not Available'
             });
         }
+        
         let token = req.user.token;
-        console.log('Token:', token);
         let user = await User.findOneAndUpdate(
-            { token: { $in: [token] } },
-            { $pull: { token: token } },
+            { token: [] },
             { useFindAndModify: false, new: true }
         );
+        console.log(token);
         if (!token || !user) {
             return next({
                 error: 1,
@@ -144,14 +138,6 @@ const logout = async (req, res, next) => {
         throw error;
     }
 };
-
-
- // const { token } = req.body;
-        // const userToken = await User.findOne({ token: { $in: [token] } });
-        // console.log('token:', token );
-        //     if (!userToken) {
-        //         return res.status(401).json({ error: 'not found!' });
-        //     }
 
 const me = (req, res, next) => {
     if(!req.user) {

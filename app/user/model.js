@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 var passportLocalMongoose = require('passport-local-mongoose');
-const bcrypt = require('bcryptjs');
+// const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
 
@@ -46,11 +46,20 @@ userSchema.path('email').validate(function(value){
 },  attr => `${attr.value} Email is not valid!`);
 
 // password
-const HASH_ROUND = 10;
-userSchema.pre('save', function(next){
-    this.password = bcrypt.hashSync(this.password, HASH_ROUND);
-    next()
-});
+// const saltRounds = 10;
+// userSchema.pre('save', function(next){
+//     if (!this.isModified('password')) {
+//         return next();
+//     }
+//     try{
+//         const hashedPassword = bcrypt.hashSync(this.password, saltRounds);
+//         this.password = hashedPassword;
+//         next();
+//       } catch (error) {
+//         console.error('Error while hashing password:', error);
+//         next(error);
+//       }
+// });
 
 userSchema.plugin(passportLocalMongoose);
 const User = mongoose.model('User', userSchema);

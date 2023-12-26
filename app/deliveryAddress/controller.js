@@ -7,8 +7,17 @@ const store = async (req, res, next) => {
     try {
         let payload = req.body;
         let user = req.user;
+        console.log(user, payload);
         let address = new DeliveryAddress({...payload, user: user._id});
+        let policy = defineAbilityFor(req.user);
+        if(!policy.can('create', address)) {
+            return res.json({
+                error: 1,
+                message: `You're not allowed to modify.`
+            });
+        }
         await address.save();
+        
         return res.json(address);
 
     }   catch (err) {
@@ -30,7 +39,7 @@ const update = async (req, res, next) => {
         let { id } = req.params;
         let address = await DeliveryAddress.findById(id);
         let subjectAddress = subject('DeliveryAddress', {...address, user_id: address.user});
-        
+        let policy = defineAbilityFor(req.user);
         if(!policy.can('update', subjectAddress)) {
             return res.json({
                 error: 1,

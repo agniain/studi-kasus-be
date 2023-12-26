@@ -21,15 +21,11 @@ router.post('/login', authController.login,
     }
 );
 
-router.post('/logout', function (req, res) {
+router.post('/logout', function (req, res, next) {
     req.logout(function(err) {
-        if (err) {
-            return res.status(500).json({
-                error: 1,
-                message: 'Logout failed'
-            });
-        }
-    });
+        if (err) { return next(err); }
+        res.json('ok');
+      });
 },
     authController.logout
 );

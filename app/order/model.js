@@ -14,13 +14,7 @@ const orderSchema = new mongoose.Schema({
         default: 0
     },
 
-    delivery_address: {
-        provinsi: { type: String, required: [true, 'provinsi harus diisi.']},
-        kota: { type: String, required: [true, 'kota harus diisi.']},
-        kecamatan: { type: String, required: [true, 'kecamatan harus diisi.']},
-        kelurahan: { type: String, required: [true, 'kelurahan harus diisi.']},
-        detail: {type: String}
-    },
+    delivery_address: [{type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryAddress' }],
 
     user: {
         type: mongoose.Schema.Types.ObjectId,
