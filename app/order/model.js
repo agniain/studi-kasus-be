@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-const Product = require('../product/model');
-const CartItem = require('../cart-item/model');
+const OrderDetail = require('./orderDetailModel');
 
 const orderSchema = new mongoose.Schema({
 
@@ -9,10 +8,12 @@ const orderSchema = new mongoose.Schema({
         ref: 'User'
     },
 
-    cart_items: [{
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'CartItem' 
-    }],
+    order_details: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'OrderDetail',
+        },
+    ],    
 
     sub_total: Number,
         
@@ -38,40 +39,36 @@ const orderSchema = new mongoose.Schema({
 
 orderSchema.methods.calculateTotal = async function () {
     try {
-        let subTotal = 0;
-
-        for (const cartItemId of this.cart_items) {
-            const cartItem = await CartItem.findById(cartItemId);
-
-            // Loop through products in cartItem
-            for (const product of cartItem.products) {
-                const productDocument = await Product.findById(product.productId);
-                // Calculate sub_total 
-                subTotal += productDocument.price * product.quantity;
-            }
-        }
-
-        // Calculate totalOrder
-        const totalOrder = subTotal + this.delivery_fee;
-
-        // Update
-        this.sub_total = subTotal;
-        this.totalOrder = totalOrder;
-
+      let subTotal = 0;
+  
+      for (const orderDetailId of this.order_details) {
+        const orderDetail = await OrderDetail.findById(orderDetailId);
+  
+        // Calculate sub_total
+        subTotal += orderDetail.price * orderDetail.quantity;
+      }
+  
+      // Calculate totalOrder
+      const totalOrder = subTotal + this.delivery_fee;
+  
+      // Update
+      this.sub_total = subTotal;
+      this.totalOrder = totalOrder;
     } catch (error) {
-        throw error;
+      throw error;
     }
-};
-
-orderSchema.pre('save', async function (next) {
+  };
+  
+  orderSchema.pre('save', async function (next) {
     try {
-        // Call the calculateTotal method before saving
-        await this.calculateTotal();
-        next();
+      // Call the calculateTotal method before saving
+      await this.calculateTotal();
+      next();
     } catch (error) {
-        next(error);
+      next(error);
     }
-});
+  });
+  
 
 const Order = mongoose.model('Order', orderSchema);
 module.exports = Order;

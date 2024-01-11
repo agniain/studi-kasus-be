@@ -1,7 +1,6 @@
 const { subject } = require("@casl/ability");
 const { defineAbilityFor } = require("../../middlewares");
 const Order = require("../order/model");
-const CartItem = require("../cart-item/model");
 
 const show = async (req, res, next) => {
   try {
@@ -9,7 +8,7 @@ const show = async (req, res, next) => {
     const invoice = 
       await Order
         .find({_id: orderId, user: req.user._id})
-        .populate('cart_items')
+        .populate('order_details')
 
       let policy = defineAbilityFor(req.user);
       let subjectInvoice = subject('Invoice', {...invoice, user: req.user._id});
@@ -32,10 +31,7 @@ const show = async (req, res, next) => {
         });
       }
       next(err);
-    } finally {
-      // Delete Cart
-      await CartItem.deleteMany({ user: req.user._id });
-    }
+    } 
   };
   
   module.exports = {
