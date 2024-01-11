@@ -1,7 +1,32 @@
 const mongoose = require('mongoose');
-const Invoice = require('../invoice/model');
+const Product = require('../product/model');
+const CartItem = require('../cart-item/model');
 
 const orderSchema = new mongoose.Schema({
+
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+
+    cart_items: [{
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'CartItem' 
+    }],
+
+    sub_total: Number,
+        
+    delivery_address: {
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'DeliveryAddress' 
+    },
+
+    delivery_fee: {
+        type: Number,
+        required: true,
+    },
+
+    totalOrder: Number,
 
     status: {
         type: String,
@@ -9,39 +34,44 @@ const orderSchema = new mongoose.Schema({
         default: 'waiting_payment'
     },
 
-    delivery_fee: {
-        type: Number,
-        default: 0
-    },
-
-    delivery_address: [{type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryAddress' }],
-
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
-    },
-
-    order_items: [{type: mongoose.Schema.Types.ObjectId, ref: 'OrderItem' }]
-
 }, { timestamps: true });
 
+orderSchema.methods.calculateTotal = async function () {
+    try {
+        let subTotal = 0;
 
+        for (const cartItemId of this.cart_items) {
+            const cartItem = await CartItem.findById(cartItemId);
 
-orderSchema.virtual('items_count').get(function(){
-    return this.order_items.reduce((total, item) => total + parseInt(item.qty ), 0);
+            // Loop through products in cartItem
+            for (const product of cartItem.products) {
+                const productDocument = await Product.findById(product.productId);
+                // Calculate sub_total 
+                subTotal += productDocument.price * product.quantity;
+            }
+        }
+
+        // Calculate totalOrder
+        const totalOrder = subTotal + this.delivery_fee;
+
+        // Update
+        this.sub_total = subTotal;
+        this.totalOrder = totalOrder;
+
+    } catch (error) {
+        throw error;
+    }
+};
+
+orderSchema.pre('save', async function (next) {
+    try {
+        // Call the calculateTotal method before saving
+        await this.calculateTotal();
+        next();
+    } catch (error) {
+        next(error);
+    }
 });
-orderSchema.post('save', async function(){
-    let sub_tutal = this.order_items.reduce((total, item) => total += (item.price * item.qty), 0);
-    let invoice = new Invoice({
-        user: this.user,
-        order: this._id,
-        sub_total: sub_total,
-        delivery_fee: parseInt(this.delivery_fee),
-        total: parseInt(sub_tutal + this.delivery_fee),
-        delivery_address: this.delivery_address
-    });
-    await invoice.save();
-})
 
 const Order = mongoose.model('Order', orderSchema);
 module.exports = Order;

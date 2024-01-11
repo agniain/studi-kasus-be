@@ -30,7 +30,8 @@ router.post('/logout', function (req, res, next) {
     authController.logout
 );
 
-router.get('/me', authController.me);
+router.get('/me', passport.authenticate('bearer', { session: false }), authController.me);
+
 router.get('/users', authController.index);
 
 

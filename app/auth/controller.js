@@ -1,7 +1,8 @@
 const User = require('../user/model');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
-const bcrypt = require('bcryptjs')
+const bcrypt = require('bcryptjs');
+const passport = require('passport');
 const LocalStrategy = require('passport-local');
 
 const register = async(req, res, next) => {
@@ -58,7 +59,7 @@ const strategy = new LocalStrategy(function verify(email, password, cb) {
                 return cb(err); 
             }
             if (!password) { 
-                return cb(null, false, { message: 'Incorrect email or password.' }); 
+                return cb(null, false, { message: 'Incorrect password.' }); 
             }
 
             return cb(null, user);
@@ -69,10 +70,22 @@ const strategy = new LocalStrategy(function verify(email, password, cb) {
 const login = async (req, res, next) => {
     try {
         const { email, password } = req.body;
-        const user = await User.findOne({ email, password });
+        console.log(req.body);
+        const user = await User.findOne({ email });
 
         if (!user) {
             console.log('User not found');
+            return res.status(401).json({
+                error: 1,
+                message: 'Email or Password incorrect',
+            });
+        }
+
+        // Compare password
+        const passwordMatch = await bcrypt.compare(password, user.password);
+
+        if (!passwordMatch) {
+            console.log('Incorrect password');
             return res.status(401).json({
                 error: 1,
                 message: 'Email or Password incorrect',
@@ -138,8 +151,17 @@ const logout = async (req, res, next) => {
         throw error;
     }
 };
+const BearerStrategy = require('passport-http-bearer').Strategy
+passport.use(new BearerStrategy(
+    function(token, done) {
+      User.findOne({ token: token }).then((res) => {
+        return done(null, res)
+      })
+    }
+  ));
 
 const me = (req, res, next) => {
+    console.log(req.user)
     if(!req.user) {
         res.json({
             err: 1,

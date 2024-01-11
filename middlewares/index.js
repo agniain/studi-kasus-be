@@ -1,6 +1,7 @@
 const { AbilityBuilder, createMongoAbility} = require("@casl/ability");
 const jwt = require('jsonwebtoken');
 const config = require('../app/config');
+const passport = require('passport');
 
 function verifyAccessToken(token) {
     return async function(req, res, next) {
@@ -14,6 +15,23 @@ function verifyAccessToken(token) {
         }
     }
 }
+
+function extractUser (req, res, next) {
+  passport.authenticate('bearer', { session: false }, (err, user, info) => {
+    if (err) {
+      return next(err);
+    }
+
+    if (!user) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
+    console.log('Authenticated user:', user);
+    req.user = user; 
+    next();
+  })(req, res, next);
+};
+
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -31,7 +49,7 @@ function authenticateToken(req, res, next) {
 
 function defineAbilityFor(user) {
     const { can, cannot, build } = new AbilityBuilder(createMongoAbility);
-  
+    console.log('test masuk')
     // permissions for all users
     can('read', 'Product');
   
@@ -43,17 +61,19 @@ function defineAbilityFor(user) {
   
       // User permissions
       if (user.role === 'user') {
+        console.log('masuk', user.role)
         can('view', 'Order');
         can('create', 'Order');
-        can('read', 'Order', { user_id: user._id });
-        can('update', 'User', { _id: user._id });
-        can('read', 'Cart', { user_id: user._id });
-        can('update', 'Cart', { user_id: user._id });
+        can('read', 'Order');
+        can('update', 'User');
+        can('create', 'CartItem')
+        can('read', 'CartItem');
+        can('update', 'CartItem');
         can('view', 'DeliveryAddress');
-        can('create', 'DeliveryAddress', { user_id: user._id });
-        can('update', 'DeliveryAddress', { user_id: user._id });
-        can('delete', 'DeliveryAddress', { user_id: user._id });
-        can('read', 'Invoice', { user_id: user._id });
+        can('create', 'DeliveryAddress');
+        can('update', 'DeliveryAddress');
+        can('delete', 'DeliveryAddress');
+        can('read', 'Invoice');
       }
   
       // Admin permissions
@@ -84,6 +104,7 @@ function police_check(action, subject) {
 
 module.exports = {
     verifyAccessToken,
+    extractUser,
     authenticateToken,
     defineAbilityFor,
     police_check,

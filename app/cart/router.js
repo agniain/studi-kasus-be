@@ -1,16 +1,19 @@
 const router = require('express').Router();
+const passport = require('passport');
 const { police_check } = require('../../middlewares');
 const cartController = require('./controller');
 
-router.put(
+router.post(
     '/carts',
-    police_check('update', 'Cart'),
-    cartController.update
+    passport.authenticate('bearer', { session: false }),
+    police_check('create', 'CartItem'),
+    cartController.store
 )
 
 router.get(
     '/carts',
-    police_check('read', 'Cart'),
+    passport.authenticate('bearer', { session: false }),
+    police_check('read', 'CartItem'),
     cartController.index
 )
 

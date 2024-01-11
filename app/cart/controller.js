@@ -1,58 +1,87 @@
+const { defineAbilityFor } = require("../../middlewares");
 const CartItem = require("../cart-item/model");
 const Product = require("../product/model");
 
-
-
-const update = async(req, res, next) => {
+const store = async (req, res, next) => {
     try {
-        const {items} = req.body;
-        const productIds = item.map(item => item.product._id);
-        const products = await Product.find({_id: {$in: productIds}});
-        let cartItems = items.map(item => {
-            let relatedProduct = products.find(product => product._id.toString() === item.product._id);
-            return {
-                product: relatedProduct._id,
-                price: relatedProduct.price,
-                image_url: relatedProduct.image_url,
-                name: relatedProduct.name,
-                user: req.user._id,
-                qty: item.qty
-            }
-        });
+        let payload = req.body;
+        let user = req.user;
+        console.log(payload);
 
-        await CartItem.deleteMany({user: req.user._id});
-        await CartItem.bulkWrite(cartItems.map(item => {
-            return {
-                updateOne: {
-                    filter: {
-                        user: req.user._id,
-                        product: item.product
-                    },
-                    update: item,
-                    upsert: true
-                }
-            }
-        }));
+        if (payload.products && payload.products.length > 0) {
+            const productIds = payload.products.map(product => product.productId);
+            let productInCart = await Product.find({ _id: { $in: productIds } });
 
-        return res.json(cartItems);
-    } catch (err) {
-        if(err && err.name == 'ValidationError'){
-            return res.json({
-                error: 1,
-                message: err.message,
-                fields: err.errors
-            });
+            if (productInCart.length > 0) {
+                payload.products = productInCart.map(product => ({
+                    productId: product._id,
+                    quantity: payload.products.find(p => p.productId.toString() === product._id.toString()).quantity
+                }));
+            } else {
+                delete payload.products;
+            }
         }
-        next(err)
+
+        const existingCart = await CartItem.findOne({ user: req.user._id });
+
+        if (existingCart) {
+            // Cart exists, update it
+            let policy = defineAbilityFor(req.user);
+            if (!policy.can('update', existingCart)) {
+                return res.json({
+                    error: 1,
+                    message: `You're not allowed to update the cart!`
+                });
+            }
+
+            // Update
+            if (payload.products && payload.products.length > 0) {
+                payload.products.forEach(newProduct => {
+                    const existingProductIndex = existingCart.products.findIndex(
+                        p => p.productId.toString() === newProduct.productId.toString()
+                    );
+            
+                    if (existingProductIndex !== -1) {
+                        // Product already exists, update
+                        existingCart.products[existingProductIndex].quantity = newProduct.quantity;
+                    } else {
+                        // Product not exist, add it to the cart
+                        existingCart.products.push(newProduct);
+                    }
+                });
+            }
+            
+            // Remove products with quantity 0
+            existingCart.products = existingCart.products.filter(product => product.quantity > 0);
+
+            await existingCart.save();
+
+            return res.json({ message: 'Cart updated successfully', cart: existingCart });
+        } else {
+            // Cart doesn't exist, create it
+            let createCart = new CartItem({ ...payload, user: user._id });
+
+            let policy = defineAbilityFor(req.user);
+            if (!policy.can('create', createCart)) {
+                return res.json({
+                    error: 1,
+                    message: `You're not allowed to create a cart!`
+                });
+            }
+            await createCart.save();
+            return res.json({ message: 'Cart created successfully', cart: createCart });
+        }
+    } catch (error) {
+        next(error);
     }
-}
+};
 
 const index = async(req, res, next) => {
     try {
         let items = 
         await CartItem
         .find({user: req.user._id})
-        .populate('product');
+        .populate('products');
 
         return res.json(items);
 
@@ -69,6 +98,6 @@ const index = async(req, res, next) => {
 }
 
 module.exports = {
-    update,
+    store,
     index,
 }
